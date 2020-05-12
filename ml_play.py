@@ -27,7 +27,7 @@ def ml_loop(side: str):
     # === Here is the execution order of the loop === #
     # 1. Put the initialization code here
     ball_served = False
-    filename = path.join(path.dirname(__file__),"SVMRegression_Ball_x_4.0_0.1.pickle")
+    filename = path.join(path.dirname(__file__),"SVMRegression_Ball_x.pickle")
     with open(filename, 'rb') as file:
         svr_ball_x = pickle.load(file)
     """
