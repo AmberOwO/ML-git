@@ -4,14 +4,10 @@ The template of the script for the machine learning process in game pingpong
 
 # Import the necessary modules and classes
 from mlgame.communication import ml as comm
-import os.path as path
-import pickle
-import numpy as np
 
 def ml_loop(side: str):
     """
     The main loop for the machine learning process
-
     The `side` parameter can be used for switch the code for either of both sides,
     so you can write the code for both sides in the same script. Such as:
     ```python
@@ -20,77 +16,70 @@ def ml_loop(side: str):
     else:
         ml_loop_for_2P()
     ```
-
     @param side The side which this script is executed for. Either "1P" or "2P".
     """
 
     # === Here is the execution order of the loop === #
     # 1. Put the initialization code here
     ball_served = False
-    filename = path.join(path.dirname(__file__),"SVMRegression_Ball_x.pickle")
-    with open(filename, 'rb') as file:
-        svr_ball_x = pickle.load(file)
-    """
-    filename = path.join(path.dirname(__file__),"save\SVMRegression_Ball_y.pickle")
-    with open(filename, 'rb') as file:
-        svr_ball_y = pickle.load(file)"""
-    
-    PlatformPos2_pre = [80, 50]
-    Blocker_pre = [0, 240]
+    def move_to(player, pred) : #move platform to predicted position to catch ball 
+        if player == '1P':
+            if scene_info["platform_1P"][0]+20  > (pred-10) and scene_info["platform_1P"][0]+20 < (pred+10): return 0 # NONE
+            elif scene_info["platform_1P"][0]+20 <= (pred-10) : return 1 # goes right
+            else : return 2 # goes left
+        else :
+            if scene_info["platform_2P"][0]+20  > (pred-10) and scene_info["platform_2P"][0]+20 < (pred+10): return 0 # NONE
+            elif scene_info["platform_2P"][0]+20 <= (pred-10) : return 1 # goes right
+            else : return 2 # goes left
+
+    def ml_loop_for_1P(): 
+        if scene_info["ball_speed"][1] > 0 : # 球正在向下 # ball goes down
+            x = ( scene_info["platform_1P"][1]-scene_info["ball"][1] ) // scene_info["ball_speed"][1] # 幾個frame以後會需要接  # x means how many frames before catch the ball
+            pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x)  # 預測最終位置 # pred means predict ball landing site 
+            bound = pred // 200 # Determine if it is beyond the boundary
+            if (bound > 0): # pred > 200 # fix landing position
+                if (bound%2 == 0) : 
+                    pred = pred - bound*200                    
+                else :
+                    pred = 200 - (pred - 200*bound)
+            elif (bound < 0) : # pred < 0
+                if (bound%2 ==1) :
+                    pred = abs(pred - (bound+1) *200)
+                else :
+                    pred = pred + (abs(bound)*200)
+            return move_to(player = '1P',pred = pred)
+        else : # 球正在向上 # ball goes up
+            return move_to(player = '1P',pred = 100)
+
+
+
+    def ml_loop_for_2P():  # as same as 1P
+        if scene_info["ball_speed"][1] > 0 : 
+            return move_to(player = '2P',pred = 100)
+        else : 
+            x = ( scene_info["platform_2P"][1]+30-scene_info["ball"][1] ) // scene_info["ball_speed"][1] 
+            pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x) 
+            bound = pred // 200 
+            if (bound > 0):
+                if (bound%2 == 0):
+                    pred = pred - bound*200 
+                else :
+                    pred = 200 - (pred - 200*bound)
+            elif (bound < 0) :
+                if bound%2 ==1:
+                    pred = abs(pred - (bound+1) *200)
+                else :
+                    pred = pred + (abs(bound)*200)
+            return move_to(player = '2P',pred = pred)
 
     # 2. Inform the game process that ml process is ready
     comm.ml_ready()
-
-    s = [93,93]
-    def get_direction(ball_x,ball_y,ball_pre_x,ball_pre_y):
-        VectorX = ball_x - ball_pre_x
-        VectorY = ball_y - ball_pre_y
-        if(VectorX>=0 and VectorY>=0):
-            return 0
-        elif(VectorX>0 and VectorY<0):
-            return 1
-        elif(VectorX<0 and VectorY>0):
-            return 2
-        elif(VectorX<0 and VectorY<0):
-            return 3
 
     # 3. Start an endless loop
     while True:
         # 3.1. Receive the scene information sent from the game process
         scene_info = comm.recv_from_game()
-        feature = []
-        #feature.append(scene_info['frame'])
-        feature.append(scene_info['ball'][0])
-        feature.append(scene_info['ball'][1])
-        feature.append(scene_info['ball_speed'][0])
-        feature.append(scene_info['ball_speed'][1])
-        #feature.append(scene_info['platform_2P'][0])
-        #feature.append(scene_info['platform_2P'][1])
-        feature.append(scene_info['blocker'][0])
-        #feature.append(scene_info['blocker'][1])
 
-        #PlatformPos2 = feature[:, 5:7]
-        #PlatformPos2_pre = np.array(PlatformPos2[1:])
-        #vectors_2P = PlatformPos2_pre - scene_info['platform_2P']#用連續兩個frame的x,y相減得到2P的移動向量    
-        #data = np.hstack((data[1:, :], vectors_2P))#9 10
-        
-        #feature.append(PlatformPos2_pre[0] - scene_info['platform_2P'][0])
-        #feature.append(PlatformPos2_pre[1] - scene_info['platform_2P'][1])
-        #PlatformPos2_pre = scene_info['platform_2P']
-
-        #Blocker = data[:, 7:9]
-        #Blocker_next = np.array(Blocker[1:])
-        #vectors_Blocker = Blocker_pre - scene_info['blocker']#用連續兩個frame的x,y相減得到Blocker的移動向量    
-        #data = np.hstack((data[1:, :], vectors_Blocker))#11 12
-        feature.append(Blocker_pre[0] - scene_info['blocker'][0])
-        #feature.append(Blocker_pre[1] - scene_info['blocker'][1])
-        Blocker_pre = scene_info['blocker']
-        
-        feature.append(get_direction(feature[0],feature[1],s[0],s[1]))
-        s = [feature[0], feature[1]]
-        feature = np.array(feature)
-        feature = feature.reshape((-1,7))
-        print(feature.shape)
         # 3.2. If either of two sides wins the game, do the updating or
         #      resetting stuff and inform the game process when the ml process
         #      is ready.
@@ -110,83 +99,23 @@ def ml_loop(side: str):
             comm.send_to_game({"frame": scene_info["frame"], "command": "SERVE_TO_LEFT"})
             ball_served = True
         else:
+            if side == "1P":
+                command = ml_loop_for_1P()
+            else:
+                command = ml_loop_for_2P()
 
-            plat_x, plat_y = scene_info['platform_1P']
-            #m = scene_info['ball_speed'][1]/scene_info['ball_speed'][0]
-            #feature = feature[:,:]
-            
-            #ball_y = svr_ball_y.predict(feature)
-
-            if scene_info['ball'][1] > 240 or scene_info['ball_speed'][1] > 0: # 球往下
-
-                ball_x = svr_ball_x.predict(feature)
-                print(ball_x)
-                if plat_x + 20 - ball_x > 3:
-                    comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                elif plat_x + 20 - ball_x < -3:
-                    comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                else:
-                    comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-            """
-            if scene_info['ball_speed'][1] > 0: # 球往下
-                plat_x_next = ball_x - (ball_y - 420)/m
-                if plat_x + 20 - plat_x_next > 0:
-                    comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                elif plat_x + 20 - plat_x_next < 0:
-                    comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                else:
-                    comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-            """
-            """
-            if scene_info['ball_speed'][1] > 0: # 球往下
-                if scene_info['ball_speed'][0] > 0: # 球往右
-
-                    if ball_x - (ball_y - 420)/m > 200: # 會碰到右邊
-                        boundR = ball_y - m*(ball_x - 200)
-                        m2 = -m
-                        plat_x_next = 200 - (boundR - 420)/m2
-                        if plat_x + 20 - plat_x_next > 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                        elif plat_x + 20 - plat_x_next < 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                        else:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-
-                    else: #不會碰到右邊
-                        plat_x_next = ball_x - (ball_y - 420)/m
-                        if plat_x + 20 - plat_x_next > 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                        elif plat_x + 20 - plat_x_next < 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                        else:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-                elif scene_info['ball_speed'][0] < 0: # 球往左
-
-                    if ball_x - (ball_y - 420)/m < 0: # 會碰到左邊
-                        boundL = ball_y - m*(ball_x)
-                        m2 = -m
-                        plat_x_next =  - (boundL - 420)/m2
-                        if plat_x + 20 - plat_x_next > 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                        elif plat_x + 20 - plat_x_next < 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                        else:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-
-                    else: #不會碰到左邊
-                        plat_x_next =  ball_x - (ball_y - 420)/m
-                        if plat_x + 20 - plat_x_next > 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                        elif plat_x + 20 - plat_x_next < 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                        else:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-                else: # 垂直往下
-                    if plat_x + 20 - plat_x_next > 0:
-                            comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
-                    elif plat_x + 20 - plat_x_next < 0:
+            if command == 0:
+                if scene_info["blocker"][0]+20 > 100:
+                    if scene_info["ball_speed"][1]/scene_info["ball_speed"][0] > 1:
+                        comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
+                    else :
                         comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-                    else:
-                        comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})"""
-                        
-            
+                else :
+                    if scene_info["ball_speed"][1]/scene_info["ball_speed"][0] > 1:
+                        comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
+                    else :
+                        comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
+            elif command == 1:
+                comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
+            else :
+                comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
