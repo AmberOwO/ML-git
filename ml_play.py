@@ -105,16 +105,16 @@ def ml_loop(side: str):
                 command = ml_loop_for_2P()
 
             if command == 0:
-                if scene_info["blocker"][0] > 100:
+                if scene_info["blocker"][0]+20 > 100:
                     if scene_info["ball_speed"][1]/scene_info["ball_speed"][0] > 1:
                         comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
                     else :
-                        comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
+                        comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
                 else :
                     if scene_info["ball_speed"][1]/scene_info["ball_speed"][0] > 1:
                         comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
                     else :
-                        comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
+                        comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
             elif command == 1:
                 comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
             else :
